@@ -1,6 +1,8 @@
 const SESSION_COOKIE = "__Host-zeus_session";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const PBKDF2_ITERATIONS = 310000;
+// Cloudflare Workers hard limit: PBKDF2 iterations must not exceed 100,000.
+// Keep this value identical for both hashPassword() and verifyPassword().
+const PBKDF2_ITERATIONS = 100000;
 
 export function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
