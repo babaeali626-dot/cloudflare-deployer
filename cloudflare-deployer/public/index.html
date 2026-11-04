@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>نصب‌کننده Cloudflare Worker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:dark;--bg:#070b17;--panel:#10182b;--panel2:#0b1223;--line:#243047;--muted:#94a3b8;--text:#e5eaf3;--orange:#fb791d;--orange2:#ff963f;--green:#34d399;--red:#f87171;--amber:#fbbf24}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -15%,#1d2b49 0,transparent 50%),var(--bg);color:var(--text);font-family:Vazirmatn,system-ui,sans-serif;padding:22px 14px;display:flex;align-items:flex-start;justify-content:center}
+    .app{width:min(100%,720px);background:rgba(15,23,42,.96);border:1px solid #25324a;border-radius:22px;overflow:hidden;box-shadow:0 25px 90px #0008}
+    header{padding:24px 26px 20px;background:linear-gradient(135deg,#17223a,#111a2c);border-bottom:1px solid var(--line)}.headrow{display:flex;align-items:center;justify-content:space-between;gap:14px}.brand{display:flex;align-items:center;gap:12px}.logo{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(145deg,#ff9c43,#ef6410);font-size:22px;box-shadow:0 8px 25px #fb791d30}.brand h1{font-size:18px;margin:0;font-weight:800}.brand p{font-size:11px;color:#9cacbf;margin:3px 0 0}.github{font-size:11px;color:#bdc9d8;text-decoration:none;padding:8px 11px;border:1px solid #33425c;border-radius:10px;background:#0e1729;white-space:nowrap}.github:hover{border-color:var(--orange);color:white}
+    .progress{margin-top:22px}.progress-top{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:11px;margin-bottom:10px}.step-name{color:#ffad69;font-weight:700}.bars{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.bar{height:5px;border-radius:20px;background:#29354a;transition:.25s}.bar.active{background:var(--orange);box-shadow:0 0 12px #fb791d65}
+    main{padding:25px 26px 22px}.step{display:none;animation:appear .22s ease}.step.active{display:block}@keyframes appear{from{opacity:.35;transform:translateY(5px)}to{opacity:1;transform:none}}h2{font-size:16px;margin:0 0 18px;font-weight:700}.hint{font-size:11px;color:var(--muted);line-height:1.9}.field{margin:0 0 17px}.field-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}label{display:block;color:#c3ccda;font-size:12px;font-weight:600}.control{width:100%;background:#080e1d;border:1px solid #29364d;border-radius:12px;color:#e8edf5;padding:12px 13px;font:13px Vazirmatn, sans-serif;outline:none;transition:.2s}.control:focus{border-color:var(--orange);box-shadow:0 0 0 3px #fb791d18}.control[dir=ltr]{text-align:left;font-family:ui-monospace,Consolas,monospace}.control::placeholder{color:#607089}.btn-link,.textbtn{border:0;background:none;color:#ff9b51;font:600 11px Vazirmatn;cursor:pointer;text-decoration:none}.guide{padding:12px 14px;background:#0a1325;border:1px solid #26344d;border-radius:12px;color:#9eacc0;font-size:11px;line-height:2}.guide strong{color:#ffad69}.token-url{display:inline-flex;margin-top:8px;text-decoration:none;color:#ffc18e;border:1px solid #75431e;background:#24170f;padding:7px 10px;border-radius:9px;font-size:11px}
+    .preset-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}.preset{border:1px solid #29364d;border-radius:12px;background:#080e1d;color:#cbd5e1;padding:12px 5px;cursor:pointer;font:600 11px Vazirmatn;transition:.2s}.preset span{display:block;font-size:19px;margin-bottom:4px}.preset small{display:block;font-size:9px;color:#73839d;font-weight:400}.preset.selected{border-color:var(--orange);background:#fb791d14;color:#ffb477;box-shadow:inset 0 0 0 1px #fb791d30}
+    .toggle-card{display:flex;align-items:center;justify-content:space-between;gap:15px;background:#080e1d;border:1px solid #26334a;border-radius:14px;padding:14px;margin:12px 0}.toggle-copy strong{display:block;font-size:13px;font-weight:600}.toggle-copy small{display:block;color:#7e8da5;font-size:10px;line-height:1.8;margin-top:4px}.switch{position:relative;flex:0 0 48px;width:48px;height:27px}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;inset:0;border-radius:30px;background:#263247;cursor:pointer;transition:.2s}.slider:before{content:"";position:absolute;width:21px;height:21px;right:3px;top:3px;background:#f8fafc;border-radius:50%;transition:.2s}.switch input:checked+.slider{background:var(--orange)}.switch input:checked+.slider:before{transform:translateX(-21px)}.switch input:focus-visible+.slider{outline:2px solid white;outline-offset:3px}
+    .subfields{display:none;padding:12px 14px 2px;margin-top:-5px;margin-bottom:12px;border:1px solid #26334a;border-top:0;border-radius:0 0 13px 13px}.subfields.visible{display:block}.warn{padding:12px 14px;background:#2b2110;border:1px solid #6b4b19;border-radius:12px;color:#f7d68a;font-size:11px;line-height:1.9;margin-top:14px}.review{background:#080e1d;border:1px solid #29364d;border-radius:14px;padding:14px}.review-row{display:flex;justify-content:space-between;gap:18px;padding:9px 2px;border-bottom:1px solid #18243a;font-size:11px}.review-row:last-child{border:0}.review-row span:first-child{color:#8b9ab2}.review-row span:last-child{color:#ffad69;text-align:left;direction:ltr;max-width:65%;overflow-wrap:anywhere}
+    .actions{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #25324a;padding-top:19px;margin-top:24px}.btn{border:1px solid transparent;border-radius:12px;padding:11px 20px;font:700 13px Vazirmatn;cursor:pointer;transition:.2s}.btn:disabled{opacity:.45;cursor:not-allowed}.primary{background:linear-gradient(135deg,var(--orange2),#f26b12);color:white;box-shadow:0 8px 22px #f9731630}.primary:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}.secondary{background:#202c41;border-color:#3a4962;color:#dce4ef}.secondary:hover:not(:disabled){background:#2a3850}.actions-right{display:flex;gap:9px;margin-right:auto}
+    .result{display:none;margin-top:17px;padding:15px;border-radius:13px;font-size:12px;line-height:1.9}.result.show{display:block}.result.success{background:#052b24;border:1px solid #16745b;color:#b9f7df}.result.error{background:#2a1118;border:1px solid #813046;color:#fecdd3}.result.info{background:#0b172b;border:1px solid #32435f;color:#c3d0e4}.result h3{font-size:14px;margin:0 0 8px}.urlbox{display:flex;align-items:center;gap:8px;direction:ltr;background:#071b18;border:1px solid #17604d;border-radius:9px;padding:8px 10px;margin-top:10px}.urlbox a{color:#a7f3d0;overflow-wrap:anywhere;font-family:ui-monospace,monospace;font-size:11px}.copy{border:1px solid #28765f;background:#0a3a2e;color:#c7f9e5;border-radius:7px;padding:5px 8px;white-space:nowrap;cursor:pointer;font:11px Vazirmatn}.logs{font-size:10px;color:#b7c9c1;margin:10px 0 0;padding-right:18px}.logs li{margin:3px 0}.muted-line{font-size:10px;color:#8392a8;margin-top:8px}
+    footer{padding:14px 20px;border-top:1px solid #202c40;color:#6f7f99;text-align:center;font-size:10px;line-height:1.9}.footer-links{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:4px}footer a{color:#9baac0;text-decoration:none}footer a:hover{color:#ffab6c}
+    .vault-box,.monitor-box{margin:16px 0;padding:14px;background:#0a1325;border:1px solid #2a3953;border-radius:14px}.vault-box h3,.monitor-box h3{margin:0 0 10px;font-size:13px;color:#ffb477}.vault-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.vault-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.vault-actions .btn{font-size:11px;padding:8px 12px}.vault-status,.monitor-status{font-size:11px;line-height:1.8;color:#aab8cc;margin-top:8px}.monitor-log{max-height:170px;overflow:auto;white-space:pre-wrap;direction:rtl;background:#070d1b;border:1px solid #26344c;border-radius:9px;padding:9px;font-size:10px;line-height:1.8;color:#cbd5e1}.monitor-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.monitor-grid .field{margin-bottom:8px}.monitor-grid input{margin-top:5px}.danger-note{color:#fca5a5;font-size:10px;line-height:1.8;margin-top:8px}
+    @media(max-width:560px){body{padding:0;background:var(--bg)}.app{border-radius:0;border:0;min-height:100vh}.headrow{align-items:flex-start}.github{font-size:10px;padding:7px}.brand h1{font-size:16px}header{padding:19px 17px}main{padding:22px 17px}.preset-grid{grid-template-columns:repeat(2,1fr)}.actions{position:sticky;bottom:0;background:#0f172a;padding:13px 0 calc(13px + env(safe-area-inset-bottom));z-index:3}.btn{padding:11px 16px}.review-row{font-size:10px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="headrow">
+      <div class="brand"><div class="logo">☁</div><div><h1>نصب‌کننده Cloudflare Worker</h1><p>استقرار مستقیم از GitHub Raw · بدون VPS و Wrangler</p></div></div>
+      <a class="github" href="https://github.com/itsyebekhe/jasaz" target="_blank" rel="noopener noreferrer">الگوی اصلی ↗</a>
+    </div>
+    <div class="progress"><div class="progress-top"><span>پیشرفت فرآیند استقرار</span><span class="step-name" id="stepLabel">مرحله ۱ از ۴</span></div><div class="bars"><i class="bar active"></i><i class="bar"></i><i class="bar"></i><i class="bar"></i></div></div>
+  </header>
+  <main>
+    <form id="deployForm" autocomplete="off">
+      <section class="step active" data-step="1">
+        <h2>گام ۱: مشخصات حساب و توکن Cloudflare</h2>
+        <div class="field"><div class="field-head"><label for="accountId">Account ID کلودفلر *</label><a class="btn-link" href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer">بازکردن داشبورد ↗</a></div><input id="accountId" class="control" dir="ltr" maxlength="32" required placeholder="شناسه ۳۲ کاراکتری حساب"><p class="hint">در داشبورد Cloudflare به بخش Workers & Pages بروید؛ شناسه حساب در URL داشبورد مشخص است.</p></div>
+        <div class="field"><div class="field-head"><label for="apiToken">API Token کلودفلر *</label><a class="btn-link" href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer">ساخت API Token ↗</a></div><input id="apiToken" type="password" class="control" dir="ltr" required maxlength="512" placeholder="توکن با دسترسی‌های لازم"><p class="hint">برای استفاده از دفترچه، حساب را پس از واردکردن مشخصات ذخیره کنید. Token در مرورگر با AES-GCM رمزگذاری می‌شود و رمز اصلی ذخیره نمی‌شود.</p></div>
+        <div class="vault-box">
+          <h3>دفترچه امن حساب‌ها (حداکثر ۱۰ حساب)</h3>
+          <div class="field"><label for="masterPassword">رمز اصلی دفترچه</label><input id="masterPassword" type="password" class="control" autocomplete="new-password" minlength="10" placeholder="حداقل ۱۰ نویسه؛ در جای امن نگه دارید"></div>
+          <div class="vault-actions"><button type="button" class="btn primary" id="vaultUnlockBtn">ایجاد / بازکردن دفترچه</button><button type="button" class="btn secondary" id="lockVaultBtn" hidden>قفل دفترچه</button></div>
+          <div id="vaultStatus" class="vault-status">برای نگهداری رمزگذاری‌شده حساب‌ها، ابتدا دفترچه را ایجاد یا باز کنید.</div>
+          <div id="vaultControls" hidden>
+            <div class="field" style="margin-top:12px"><label for="accountLabel">نام دلخواه حساب</label><input id="accountLabel" class="control" maxlength="40" placeholder="مثلاً حساب اصلی / حساب دوم"></div>
+            <div class="field"><label for="savedAccounts">حساب‌های ذخیره‌شده</label><select id="savedAccounts" class="control"><option value="">انتخاب حساب</option></select></div>
+            <div class="vault-actions"><button type="button" class="btn primary" id="saveAccountBtn">ذخیره / به‌روزرسانی حساب فعلی</button><button type="button" class="btn secondary" id="deleteAccountBtn">حذف حساب انتخاب‌شده</button></div>
+          </div>
+        </div>
+        <div class="guide"><strong>دسترسی‌های لازم:</strong><br>• برای ساخت Worker جدید یا Clean Rebuild: نقش <b>Workers Admin</b> در سطح حساب.<br>• برای اتصال D1: دسترسی <b>D1 Edit</b>.<br>• برای ساخت KV: دسترسی <b>Workers KV Storage Edit</b>.<br>• برای اتصال دامنه: دسترسی مدیریت Worker و فعال بودن Zone دامنه در همین حساب.</div>
+      </section>
+
+      <section class="step" data-step="2">
+        <h2>گام ۲: سورس و مشخصات Worker</h2>
+        <label>الگوی آماده پروژه</label>
+        <div class="preset-grid" style="margin-top:8px">
+          <button type="button" class="preset" data-preset="nahan"><span>🛡️</span>نهان (Nahan)<small>IOT_DB · D1</small></button>
+          <button type="button" class="preset" data-preset="nahanmini"><span>🌿</span>نهان‌مینی<small>DB · D1</small></button>
+          <button type="button" class="preset" data-preset="zeus"><span>⚡</span>زئوس (Zeus)<small>DB · D1</small></button>
+          <button type="button" class="preset selected" data-preset="custom"><span>🛠️</span>سفارشی<small>Raw URL دلخواه</small></button>
+        </div>
+        <div class="field"><div class="field-head"><label for="workerName">نام Worker *</label><button type="button" class="textbtn" id="randomWorker">تولید نام تصادفی</button></div><input id="workerName" class="control" dir="ltr" required maxlength="63" placeholder="my-worker-01"><p class="hint">برای به‌روزرسانی، نام Worker موجود را وارد کنید. نام باید با حروف کوچک و عدد شروع شود.</p></div>
+        <div class="field"><label for="scriptUrl">آدرس مستقیم سورس کد (GitHub Raw URL) *</label><input id="scriptUrl" class="control" dir="ltr" type="url" required value="https://raw.githubusercontent.com/babaeali626-dot/clean-ips/refs/heads/main/worker%2Cjs" placeholder="https://raw.githubusercontent.com/user/repo/main/worker.js"><p class="hint">فقط لینک خام GitHub یا Gist پذیرفته می‌شود. فایل باید یک اسکریپت Worker آماده استقرار باشد.</p></div>
+        <div class="field"><label for="customDomain">دامنه یا زیردامنه اختصاصی (اختیاری)</label><input id="customDomain" class="control" dir="ltr" placeholder="panel.example.com"><p class="hint">دامنه باید از قبل در همین حساب Cloudflare فعال باشد. رکورد DNS و گواهی توسط Cloudflare مدیریت می‌شود.</p></div>
+        <div class="toggle-card"><div class="toggle-copy"><strong>مبهم‌سازی سورس کد (Obfuscator)</strong><small>همان روش رشته‌ای XOR/Base64 مورد استفاده Jasaz؛ ممکن است با بعضی سورس‌ها ناسازگار باشد و رمزنگاری واقعی نیست.</small></div><label class="switch"><input id="enableObfuscation" type="checkbox"><span class="slider"></span></label></div>
+        <div class="toggle-card"><div class="toggle-copy"><strong>حذف و بازسازی مجدد Worker (Clean Rebuild)</strong><small>در صورت وجود Worker با همین نام، ابتدا حذف و سپس از صفر ایجاد می‌شود. در صورت شکست آپلود، نسخه قبلی خودکار برنمی‌گردد؛ منابع Durable Object متعلق به Worker نیز ممکن است حذف شوند.</small></div><label class="switch"><input id="recreateWorker" type="checkbox"><span class="slider"></span></label></div>
+        <div class="warn">⚠️ مبهم‌سازی را فقط وقتی فعال کنید که سورس را تست کرده‌اید. برای سورس‌های از پیش مبهم‌شده مانند بعضی نسخه‌های Nahan، مبهم‌سازی مجدد را فعال نکنید.</div>
+      </section>
+
+      <section class="step" data-step="3">
+        <h2>گام ۳: منابع ذخیره‌سازی اختیاری (D1 و KV)</h2>
+        <div class="toggle-card"><div class="toggle-copy"><strong>ساخت یا اتصال پایگاه‌داده D1</strong><small>اگر دیتابیسی با همین نام وجود داشته باشد، به همان متصل می‌شود؛ در غیر این صورت ایجاد می‌شود.</small></div><label class="switch"><input id="enableD1" type="checkbox"><span class="slider"></span></label></div>
+        <div id="d1Fields" class="subfields"><div class="field"><div class="field-head"><label for="d1Name">نام دیتابیس D1 *</label><button type="button" class="textbtn" id="randomD1">نام تصادفی</button></div><input id="d1Name" class="control" dir="ltr" placeholder="my-database"></div><div class="field"><label for="bindingName">نام Binding در سورس Worker *</label><input id="bindingName" class="control" dir="ltr" value="DB" placeholder="DB یا IOT_DB"></div></div>
+        <div class="toggle-card"><div class="toggle-copy"><strong>ساخت یا اتصال KV Namespace</strong><small>فضای KV موجود با همان عنوان پیدا می‌شود؛ اگر وجود نداشته باشد ساخته خواهد شد.</small></div><label class="switch"><input id="enableKV" type="checkbox"><span class="slider"></span></label></div>
+        <div id="kvFields" class="subfields"><div class="field"><div class="field-head"><label for="kvName">نام KV Namespace *</label><button type="button" class="textbtn" id="randomKV">نام تصادفی</button></div><input id="kvName" class="control" dir="ltr" placeholder="my-kv-store"></div><div class="field"><label for="kvBindingName">نام Binding در سورس Worker *</label><input id="kvBindingName" class="control" dir="ltr" value="KV" placeholder="KV یا MY_KV"></div></div>
+        <p class="hint">نکته: این مرحله فقط منابع را ایجاد/پیدا و Binding آن‌ها را روی Worker تنظیم می‌کند؛ ساخت جدول‌ها و داده‌های اولیه دیتابیس بر عهده سورس Worker است.</p>
+      </section>
+
+      <section class="step" data-step="4">
+        <h2>گام ۴: بازبینی و استقرار نهایی</h2>
+        <div class="review">
+          <div class="review-row"><span>نام Worker</span><span id="reviewWorker">—</span></div>
+          <div class="review-row"><span>سورس</span><span id="reviewSource">—</span></div>
+          <div class="review-row"><span>مبهم‌سازی</span><span id="reviewObf">خاموش</span></div>
+          <div class="review-row"><span>روش استقرار</span><span id="reviewRebuild">به‌روزرسانی مستقیم</span></div>
+          <div class="review-row"><span>دامنه اختصاصی</span><span id="reviewDomain">غیرفعال</span></div>
+          <div class="review-row"><span>D1</span><span id="reviewD1">غیرفعال</span></div>
+          <div class="review-row"><span>KV</span><span id="reviewKV">غیرفعال</span></div>
+        </div>
+        <div class="warn">با شروع عملیات، درخواست با API Token حساب شما به Cloudflare ارسال می‌شود. گزینه Clean Rebuild عملیات حذف Worker موجود را نیز انجام می‌دهد.</div>
+        <div id="result" class="result" role="status" aria-live="polite"></div>
+        <div class="monitor-box" id="monitorBox">
+          <h3>پایش سلامت و بازسازی خودکار</h3>
+          <div class="monitor-grid">
+            <div class="field"><label for="probePath">مسیر بررسی سلامت</label><input id="probePath" class="control" dir="ltr" value="/" maxlength="256"></div>
+            <div class="field"><label for="monitorInterval">فاصله بررسی (دقیقه)</label><input id="monitorInterval" class="control" type="number" min="5" max="1440" value="10"></div>
+            <div class="field"><label for="failureThreshold">تعداد شکست متوالی</label><input id="failureThreshold" class="control" type="number" min="2" max="10" value="3"></div>
+            <div class="field"><label>اجازه بازسازی خودکار</label><label class="switch" style="margin-top:7px"><input id="autoRebuildMonitor" type="checkbox"><span class="slider"></span></label></div>
+          </div>
+          <div class="vault-actions"><button type="button" class="btn primary" id="monitorToggleBtn">شروع پایش</button><button type="button" class="btn secondary" id="monitorCheckBtn">بررسی همین حالا</button></div>
+          <div id="monitorStatus" class="monitor-status">پس از استقرار موفق و ذخیره حساب در دفترچه، پایش قابل فعال‌سازی است.</div>
+          <div id="monitorLog" class="monitor-log" aria-live="polite">هنوز پایشی انجام نشده است.</div>
+          <p class="danger-note">هشدار: Rebuild خودکار ابتدا Worker قبلی را حذف می‌کند. از آن برای Workerهای دارای Durable Object بدون پشتیبان استفاده نکنید. پایش مرورگری با بسته‌شدن صفحه یا قفل دفترچه متوقف می‌شود.</p>
+        </div>
+      </section>
+
+      <div class="actions"><button type="button" id="prevBtn" class="btn secondary" hidden>مرحله قبل</button><div class="actions-right"><button type="button" id="nextBtn" class="btn primary">مرحله بعد</button><button type="submit" id="deployBtn" class="btn primary" hidden>شروع استقرار / به‌روزرسانی</button></div></div>
+    </form>
+  </main>
+  <footer>ابزار مستقل استقرار Worker · بدون ذخیره‌سازی سروری Token
+    <div class="footer-links"><a href="https://github.com/itsyebekhe/jasaz" target="_blank" rel="noopener noreferrer">برگرفته از جریان دیپلوی Jasaz</a><a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener noreferrer">مجوز GPL-3.0</a><a href="https://developers.cloudflare.com/api/" target="_blank" rel="noopener noreferrer">Cloudflare API</a></div>
+  </footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const form = $('deployForm');
+  const steps = [...document.querySelectorAll('.step')];
+  const bars = [...document.querySelectorAll('.bar')];
+  const presetButtons = [...document.querySelectorAll('[data-preset]')];
+  let currentStep = 1;
+  let running = false;
+
+  const PRESETS = {
+    nahan: { url: 'https://raw.githubusercontent.com/itsyebekhe/nahan/refs/heads/main/worker.encoded.js', binding: 'IOT_DB', obfuscate: false, recreate: true, d1: true },
+    nahanmini: { url: 'https://raw.githubusercontent.com/itsyebekhe/NahanMini/main/src/worker.js', binding: 'DB', obfuscate: true, recreate: true, d1: true },
+    zeus: { url: 'https://raw.githubusercontent.com/panel-zeus/Z-E-U-S/refs/heads/main/Source.js', binding: 'DB', obfuscate: true, recreate: true, d1: true },
+    custom: { url: 'https://raw.githubusercontent.com/babaeali626-dot/clean-ips/refs/heads/main/worker%2Cjs', binding: 'DB', obfuscate: false, recreate: false, d1: false },
+  };
+
+  function setStep(number) {
+    currentStep = number;
+    steps.forEach((node) => node.classList.toggle('active', Number(node.dataset.step) === number));
+    bars.forEach((bar, index) => bar.classList.toggle('active', index < number));
+    $('stepLabel').textContent = `مرحله ${number} از ۴`;
+    $('prevBtn').hidden = number === 1;
+    $('nextBtn').hidden = number === 4;
+    $('deployBtn').hidden = number !== 4;
+    if (number === 4) updateReview();
+  }
+
+  function validUrl(value) {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' && ['raw.githubusercontent.com', 'gist.githubusercontent.com', 'raw.github.com'].includes(url.hostname.toLowerCase());
+    } catch { return false; }
+  }
+
+  function validateStep() {
+    if (currentStep === 1) {
+      if (!/^[a-f0-9]{32}$/i.test($('accountId').value.trim())) {
+        alert('Account ID باید ۳۲ کاراکتر هگزادسیمال باشد.'); $('accountId').focus(); return false;
+      }
+      if ($('apiToken').value.trim().length < 20) { alert('API Token را وارد کنید.'); $('apiToken').focus(); return false; }
+    }
+    if (currentStep === 2) {
+      if (!/^[a-z0-9][a-z0-9_-]{0,62}$/.test($('workerName').value.trim())) {
+        alert('نام Worker معتبر نیست. از حروف کوچک انگلیسی، عدد، خط تیره و زیرخط استفاده کنید.'); $('workerName').focus(); return false;
+      }
+      if (!validUrl($('scriptUrl').value.trim())) {
+        alert('لینک سورس باید HTTPS و از نوع GitHub Raw یا Gist Raw باشد.'); $('scriptUrl').focus(); return false;
+      }
+      if ($('customDomain').value.trim() && !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test($('customDomain').value.trim().replace(/^https?:\/\//i, '').replace(/\.$/, ''))) {
+        alert('دامنه اختصاصی معتبر نیست. فقط hostname وارد کنید.'); $('customDomain').focus(); return false;
+      }
+    }
+    if (currentStep === 3) {
+      if ($('enableD1').checked && (!$('d1Name').value.trim() || !$('bindingName').value.trim())) { alert('نام دیتابیس D1 و Binding را تکمیل کنید.'); return false; }
+      if ($('enableKV').checked && (!$('kvName').value.trim() || !$('kvBindingName').value.trim())) { alert('نام KV و Binding را تکمیل کنید.'); return false; }
+      if ($('enableD1').checked && !/^[A-Za-z_$][A-Za-z0-9_$]{0,99}$/.test($('bindingName').value.trim())) { alert('نام Binding مربوط به D1 معتبر نیست.'); return false; }
+      if ($('enableKV').checked && !/^[A-Za-z_$][A-Za-z0-9_$]{0,99}$/.test($('kvBindingName').value.trim())) { alert('نام Binding مربوط به KV معتبر نیست.'); return false; }
+    }
+    return true;
+  }
+
+  function updateReview() {
+    $('reviewWorker').textContent = $('workerName').value.trim() || '—';
+    $('reviewSource').textContent = $('scriptUrl').value.trim().split('/').slice(-1)[0] || '—';
+    $('reviewObf').textContent = $('enableObfuscation').checked ? 'فعال (XOR/Base64)' : 'خاموش';
+    $('reviewRebuild').textContent = $('recreateWorker').checked ? 'حذف و بازسازی از صفر' : 'به‌روزرسانی مستقیم';
+    $('reviewDomain').textContent = $('customDomain').value.trim() || 'غیرفعال';
+    $('reviewD1').textContent = $('enableD1').checked ? `${$('d1Name').value} · ${$('bindingName').value}` : 'غیرفعال';
+    $('reviewKV').textContent = $('enableKV').checked ? `${$('kvName').value} · ${$('kvBindingName').value}` : 'غیرفعال';
+  }
+
+  function selectPreset(name) {
+    const preset = PRESETS[name];
+    if (!preset) return;
+    presetButtons.forEach(button => button.classList.toggle('selected', button.dataset.preset === name));
+    $('scriptUrl').value = preset.url;
+    $('bindingName').value = preset.binding;
+    $('recreateWorker').checked = preset.recreate;
+    $('enableD1').checked = preset.d1;
+    $('enableObfuscation').checked = preset.obfuscate;
+    if (name === 'nahan') $('enableObfuscation').checked = false;
+    toggleResourceFields();
+    if (name === 'custom') $('d1Name').value = '';
+  }
+
+  function toggleResourceFields() {
+    $('d1Fields').classList.toggle('visible', $('enableD1').checked);
+    $('kvFields').classList.toggle('visible', $('enableKV').checked);
+  }
+
+  function randomFrom(prefixes) { return `${prefixes[Math.floor(Math.random() * prefixes.length)]}-${Math.floor(100 + Math.random() * 900)}`; }
+  $('randomWorker').addEventListener('click', () => { $('workerName').value = randomFrom(['fast','turbo','sky','pixel','smart','flow','edge','shield']); });
+  $('randomD1').addEventListener('click', () => { $('d1Name').value = randomFrom(['db','data','store','cloud','vault','jasaz']); });
+  $('randomKV').addEventListener('click', () => { $('kvName').value = randomFrom(['kv','cache','store','session']); });
+  $('enableD1').addEventListener('change', toggleResourceFields);
+  $('enableKV').addEventListener('change', toggleResourceFields);
+  presetButtons.forEach(button => button.addEventListener('click', () => selectPreset(button.dataset.preset)));
+  $('nextBtn').addEventListener('click', () => { if (validateStep()) setStep(Math.min(4, currentStep + 1)); });
+  $('prevBtn').addEventListener('click', () => setStep(Math.max(1, currentStep - 1)));
+
+  function showResult(kind, title, detail) {
+    const result = $('result');
+    result.className = `result show ${kind}`;
+    result.replaceChildren();
+    const heading = document.createElement('h3'); heading.textContent = title; result.appendChild(heading);
+    if (detail) { const p = document.createElement('p'); p.textContent = detail; result.appendChild(p); }
+    return result;
+  }
+
+  function addUrlBox(parent, label, value) {
+    if (!value) return;
+    const title = document.createElement('div'); title.textContent = label; title.style.marginTop = '10px'; parent.appendChild(title);
+    const box = document.createElement('div'); box.className = 'urlbox';
+    const anchor = document.createElement('a'); anchor.href = value; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer'; anchor.textContent = value;
+    const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'copy'; copy.textContent = 'کپی';
+    copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(value); copy.textContent = 'کپی شد'; } catch { copy.textContent = 'کپی نشد'; } });
+    box.append(anchor, copy); parent.appendChild(box);
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (running || !validateStep()) return;
+    if ($('recreateWorker').checked && !confirm('Clean Rebuild فعال است. Worker قبلی با همین نام حذف می‌شود و سپس دوباره ساخته خواهد شد. ادامه می‌دهید؟')) return;
+    running = true;
+    $('deployBtn').disabled = true; $('prevBtn').disabled = true;
+    showResult('info', 'در حال استقرار…', 'سورس در حال دریافت است و سپس منابع و تنظیمات Worker به Cloudflare ارسال می‌شوند. این صفحه را نبندید.');
+
+    const payload = {
+      accountId: $('accountId').value.trim(),
+      apiToken: $('apiToken').value.trim(),
+      workerName: $('workerName').value.trim(),
+      scriptUrl: $('scriptUrl').value.trim(),
+      customDomain: $('customDomain').value.trim() || null,
+      enableObfuscation: $('enableObfuscation').checked,
+      recreateWorker: $('recreateWorker').checked,
+      d1Name: $('enableD1').checked ? $('d1Name').value.trim() : null,
+      bindingName: $('enableD1').checked ? $('bindingName').value.trim() : null,
+      kvName: $('enableKV').checked ? $('kvName').value.trim() : null,
+      kvBindingName: $('enableKV').checked ? $('kvBindingName').value.trim() : null,
+    };
+
+    try {
+      const response = await fetch('/api/deploy', {
+        method: 'POST', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      let data;
+      try { data = await response.json(); } catch { throw new Error(`پاسخ API معتبر نبود (HTTP ${response.status}).`); }
+      if (!response.ok || !data.success) throw new Error(data.error || `استقرار ناموفق بود (HTTP ${response.status}).`);
+      await saveDeploymentConfig(payload, data);
+
+      const result = showResult('success', 'استقرار با موفقیت انجام شد!');
+      const summary = document.createElement('div');
+      summary.textContent = `Worker: ${data.workerName} · نوع: ${data.moduleWorker ? 'ES Module' : 'Service Worker'} · حجم سورس: ${(data.sourceBytes || 0).toLocaleString('fa-IR')} بایت`;
+      result.appendChild(summary);
+      addUrlBox(result, 'آدرس workers.dev', data.workerUrl);
+      addUrlBox(result, 'آدرس دامنه اختصاصی', data.customDomainUrl);
+      if (data.customDomainError || data.workersDevError) {
+        const warning = document.createElement('p'); warning.style.color = '#fcd38a';
+        warning.textContent = [data.customDomainError, data.workersDevError].filter(Boolean).join(' | ');
+        result.appendChild(warning);
+      }
+      const resources = document.createElement('p');
+      resources.textContent = [data.d1DatabaseId ? `D1 ID: ${data.d1DatabaseId}` : '', data.kvNamespaceId ? `KV ID: ${data.kvNamespaceId}` : ''].filter(Boolean).join(' · ') || 'Binding اضافه‌ای انتخاب نشده بود.';
+      resources.style.marginTop = '10px'; result.appendChild(resources);
+      if (Array.isArray(data.steps)) {
+        const list = document.createElement('ol'); list.className = 'logs';
+        data.steps.forEach(item => { const li = document.createElement('li'); li.textContent = item; list.appendChild(li); });
+        result.appendChild(list);
+      }
+      const clear = document.createElement('p'); clear.className = 'muted-line';
+      clear.textContent = vaultKey && activeAccountId ? 'تنظیمات این استقرار در دفترچه رمزگذاری‌شده ذخیره شد؛ Token فقط به‌صورت رمزگذاری‌شده در مرورگر نگهداری می‌شود.' : 'برای استفاده از پایش پس از Refresh، ابتدا دفترچه را باز کنید و این حساب را ذخیره کنید.'; result.appendChild(clear);
+    } catch (error) {
+      showResult('error', 'خطا در فرایند استقرار', error.message || 'خطای ناشناخته');
+    } finally {
+      running = false; $('deployBtn').disabled = false; $('prevBtn').disabled = false;
+    }
+  });
+
+  // Encrypted local account vault (IndexedDB + PBKDF2 + AES-GCM).
+  const DB_NAME = 'zeus-cloud-deployer-vault-v2';
+  const DB_VERSION = 1;
+  const PBKDF2_ITERATIONS = 310000;
+  const encoder = new TextEncoder();
+  let vaultDb = null;
+  let vaultKey = null;
+  let activeAccountId = null;
+  let activeDeployment = null;
+  let monitorTimer = null;
+  let monitorBusy = false;
+
+  function openVaultDb() {
+    if (vaultDb) return Promise.resolve(vaultDb);
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('accounts')) db.createObjectStore('accounts', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+        if (!db.objectStoreNames.contains('deployments')) db.createObjectStore('deployments', { keyPath: 'key' });
+      };
+      request.onsuccess = () => { vaultDb = request.result; resolve(vaultDb); };
+      request.onerror = () => reject(request.error || new Error('بازکردن IndexedDB ناموفق بود.'));
+    });
+  }
+
+  async function storeRequest(storeName, mode, action, value) {
+    const db = await openVaultDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, mode);
+      const store = tx.objectStore(storeName);
+      const request = value === undefined ? store[action]() : store[action](value);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error('خطای ذخیره‌سازی محلی.'));
+      tx.onabort = () => reject(tx.error || new Error('تراکنش IndexedDB لغو شد.'));
+    });
+  }
+  const dbGet = (store, key) => storeRequest(store, 'readonly', 'get', key);
+  const dbPut = (store, value) => storeRequest(store, 'readwrite', 'put', value);
+  const dbDelete = (store, key) => storeRequest(store, 'readwrite', 'delete', key);
+  const dbAll = (store) => storeRequest(store, 'readonly', 'getAll');
+
+  function toB64(bytes) {
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(binary);
+  }
+  function fromB64(value) {
+    const binary = atob(value);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+  async function deriveVaultKey(password, salt) {
+    const material = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+      material,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+  async function encryptText(value) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, vaultKey, encoder.encode(value));
+    return { iv: toB64(iv), cipher: toB64(new Uint8Array(data)) };
+  }
+  async function decryptText(record) {
+    const data = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(record.iv) }, vaultKey, fromB64(record.cipher));
+    return new TextDecoder().decode(data);
+  }
+  async function setSetting(key, value) { await dbPut('settings', { key, value }); }
+  async function getSetting(key) { const item = await dbGet('settings', key); return item ? item.value : null; }
+
+  function setVaultStatus(message, isError = false) {
+    $('vaultStatus').textContent = message;
+    $('vaultStatus').style.color = isError ? '#fca5a5' : '#aab8cc';
+  }
+  async function renderAccounts(selectId = activeAccountId) {
+    const rows = (await dbAll('accounts')).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    const select = $('savedAccounts');
+    select.replaceChildren(new Option('انتخاب حساب', ''));
+    rows.forEach(row => select.add(new Option(`${row.label} · …${row.accountId.slice(-6)}`, row.id)));
+    if (selectId && rows.some(row => row.id === selectId)) select.value = selectId;
+    return rows;
+  }
+
+  async function loadAccount(id, restore = false) {
+    if (!vaultKey) throw new Error('ابتدا دفترچه را باز کنید.');
+    const row = await dbGet('accounts', id);
+    if (!row) throw new Error('حساب انتخاب‌شده پیدا نشد.');
+    const token = await decryptText({ iv: row.tokenIv, cipher: row.tokenCipher });
+    activeAccountId = row.id;
+    $('accountLabel').value = row.label;
+    $('accountId').value = row.accountId;
+    $('apiToken').value = token;
+    $('savedAccounts').value = row.id;
+    await setSetting('activeAccountId', row.id);
+    setVaultStatus(`حساب «${row.label}» بارگذاری شد. Token فقط پس از رمزگشایی در حافظه صفحه قرار دارد.`);
+    if (!restore) await restoreActiveDeployment();
+  }
+
+  async function createOrUnlockVault() {
+    const password = $('masterPassword').value;
+    if (password.length < 10) throw new Error('رمز اصلی باید حداقل ۱۰ نویسه باشد.');
+    await openVaultDb();
+    const metaRecord = await dbGet('settings', 'vaultMeta');
+    const meta = metaRecord?.value || null;
+    if (!meta) {
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      vaultKey = await deriveVaultKey(password, salt);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const checkCipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, vaultKey, encoder.encode('zeus-vault-check-v2'));
+      await setSetting('vaultMeta', { salt: toB64(salt), iv: toB64(iv), cipher: toB64(new Uint8Array(checkCipher)), iterations: PBKDF2_ITERATIONS });
+      setVaultStatus('دفترچه ساخته شد. رمز اصلی را فراموش نکنید؛ بازیابی آن ممکن نیست.');
+    } else {
+      vaultKey = await deriveVaultKey(password, fromB64(meta.salt));
+      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(meta.iv) }, vaultKey, fromB64(meta.cipher));
+      if (new TextDecoder().decode(plain) !== 'zeus-vault-check-v2') throw new Error('رمز اصلی اشتباه است.');
+      setVaultStatus('دفترچه با موفقیت باز شد.');
+    }
+    $('masterPassword').value = '';
+    $('vaultControls').hidden = false;
+    $('lockVaultBtn').hidden = false;
+    $('vaultUnlockBtn').hidden = true;
+    const rows = await renderAccounts();
+    const remembered = await getSetting('activeAccountId');
+    if (remembered && rows.some(row => row.id === remembered)) await loadAccount(remembered, true);
+    await restoreActiveDeployment();
+  }
+
+  async function saveCurrentAccount() {
+    if (!vaultKey) throw new Error('ابتدا دفترچه را باز کنید.');
+    const label = $('accountLabel').value.trim();
+    const accountId = $('accountId').value.trim();
+    const token = $('apiToken').value.trim();
+    if (!label) throw new Error('برای حساب یک نام دلخواه وارد کنید.');
+    if (!/^[a-f0-9]{32}$/i.test(accountId)) throw new Error('Account ID معتبر نیست.');
+    if (token.length < 20 || token.length > 512) throw new Error('API Token معتبر نیست.');
+    const selectedId = $('savedAccounts').value;
+    const rows = await dbAll('accounts');
+    let existing = selectedId ? rows.find(row => row.id === selectedId) : rows.find(row => row.accountId === accountId && row.label === label);
+    if (!existing && rows.length >= 10) throw new Error('حداکثر ۱۰ حساب قابل ذخیره است. ابتدا یک حساب را حذف کنید.');
+    const encrypted = await encryptText(token);
+    const id = existing?.id || crypto.randomUUID();
+    await dbPut('accounts', {
+      id, label, accountId,
+      tokenIv: encrypted.iv,
+      tokenCipher: encrypted.cipher,
+      createdAt: existing?.createdAt || Date.now(),
+      updatedAt: Date.now(),
+    });
+    activeAccountId = id;
+    await setSetting('activeAccountId', id);
+    await renderAccounts(id);
+    setVaultStatus(`حساب «${label}» به‌صورت رمزگذاری‌شده ذخیره شد. تعداد حساب‌ها: ${rows.length + (existing ? 0 : 1)} از ۱۰.`);
+  }
+
+  async function deleteSelectedAccount() {
+    const id = $('savedAccounts').value;
+    if (!id) throw new Error('ابتدا حسابی را برای حذف انتخاب کنید.');
+    const row = await dbGet('accounts', id);
+    if (!row || !confirm(`حساب «${row.label}» حذف شود؟`)) return;
+    const deployments = await dbAll('deployments');
+    for (const item of deployments) if (item.accountRecordId === id) await dbDelete('deployments', item.key);
+    await dbDelete('accounts', id);
+    if (activeAccountId === id) {
+      activeAccountId = null;
+      $('accountId').value = '';
+      $('apiToken').value = '';
+      $('accountLabel').value = '';
+      activeDeployment = null;
+      await setSetting('activeAccountId', null);
+      await setSetting('activeDeploymentKey', null);
+      pauseMonitor();
+    }
+    await renderAccounts();
+    setVaultStatus('حساب انتخاب‌شده حذف شد.');
+    updateMonitorStatus();
+  }
+
+  function pauseMonitor() {
+    if (monitorTimer) clearInterval(monitorTimer);
+    monitorTimer = null;
+    $('monitorToggleBtn').textContent = 'شروع پایش';
+  }
+  async function lockVault() {
+    pauseMonitor();
+    vaultKey = null;
+    activeAccountId = null;
+    $('apiToken').value = '';
+    $('accountId').value = '';
+    $('masterPassword').value = '';
+    $('vaultControls').hidden = true;
+    $('lockVaultBtn').hidden = true;
+    $('vaultUnlockBtn').hidden = false;
+    setVaultStatus('دفترچه قفل شد؛ کلید رمزگشایی از حافظه صفحه پاک شد.');
+    updateMonitorStatus();
+  }
+
+  async function saveDeploymentConfig(payload, result) {
+    if (!vaultKey || !activeAccountId) return;
+    const account = await dbGet('accounts', activeAccountId);
+    if (!account || account.accountId.toLowerCase() !== payload.accountId.toLowerCase()) return;
+    const key = `${activeAccountId}:${payload.workerName}`;
+    const previous = await dbGet('deployments', key);
+    const item = {
+      key,
+      accountRecordId: activeAccountId,
+      accountId: payload.accountId,
+      workerName: payload.workerName,
+      scriptUrl: payload.scriptUrl,
+      customDomain: payload.customDomain,
+      enableObfuscation: payload.enableObfuscation,
+      d1Name: payload.d1Name,
+      bindingName: payload.bindingName,
+      kvName: payload.kvName,
+      kvBindingName: payload.kvBindingName,
+      workerUrl: result.workerUrl || previous?.workerUrl || null,
+      deployedAt: Date.now(),
+      monitor: previous?.monitor || { enabled: false, intervalMinutes: 10, failureThreshold: 3, autoRebuild: false, consecutiveFailures: 0, lastRebuildAt: 0 },
+    };
+    await dbPut('deployments', item);
+    activeDeployment = item;
+    await setSetting('activeDeploymentKey', key);
+    updateMonitorStatus();
+  }
+
+  async function restoreActiveDeployment() {
+    if (!vaultKey) return;
+    pauseMonitor();
+    let key = await getSetting('activeDeploymentKey');
+    let item = key ? await dbGet('deployments', key) : null;
+    if (!item || item.accountRecordId !== activeAccountId) {
+      const candidates = (await dbAll('deployments'))
+        .filter(entry => entry.accountRecordId === activeAccountId)
+        .sort((a, b) => (b.deployedAt || 0) - (a.deployedAt || 0));
+      item = candidates[0] || null;
+      key = item?.key || null;
+      await setSetting('activeDeploymentKey', key);
+    }
+    if (!item || !activeAccountId) { activeDeployment = null; pauseMonitor(); updateMonitorStatus(); return; }
+    activeDeployment = item;
+    $('probePath').value = item.monitor?.probePath || '/';
+    $('monitorInterval').value = item.monitor?.intervalMinutes || 10;
+    $('failureThreshold').value = item.monitor?.failureThreshold || 3;
+    $('autoRebuildMonitor').checked = item.monitor?.autoRebuild === true;
+    updateMonitorStatus();
+    if (item.monitor?.enabled && !monitorTimer) await startMonitor(true);
+  }
+
+  function updateMonitorStatus(message) {
+    if (message) $('monitorStatus').textContent = message;
+    else if (!vaultKey) $('monitorStatus').textContent = 'برای پایش، دفترچه را باز کنید.';
+    else if (!activeDeployment) $('monitorStatus').textContent = 'پس از استقرار موفق Worker با حساب ذخیره‌شده، می‌توانید پایش را فعال کنید.';
+    else $('monitorStatus').textContent = `Worker انتخاب‌شده: ${activeDeployment.workerName} · حساب: ${activeDeployment.accountId.slice(-6)} · ${monitorTimer ? 'پایش فعال است' : 'پایش متوقف است'}`;
+  }
+  function logMonitor(message) {
+    const stamp = new Date().toLocaleString('fa-IR');
+    const old = $('monitorLog').textContent.split('\n').filter(Boolean);
+    old.push(`[${stamp}] ${message}`);
+    $('monitorLog').textContent = old.slice(-25).join('\n');
+    $('monitorLog').scrollTop = $('monitorLog').scrollHeight;
+  }
+
+  async function getActiveAccountAndToken() {
+    if (!vaultKey || !activeAccountId) throw new Error('دفترچه را باز کرده و یک حساب را انتخاب کنید.');
+    const account = await dbGet('accounts', activeAccountId);
+    if (!account) throw new Error('حساب فعال در دفترچه پیدا نشد.');
+    const token = await decryptText({ iv: account.tokenIv, cipher: account.tokenCipher });
+    return { account, token };
+  }
+
+  async function healthRequest(deployment, token) {
+    const response = await fetch('/api/health', {
+      method: 'POST', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        accountId: deployment.accountId,
+        apiToken: token,
+        workerName: deployment.workerName,
+        customDomain: deployment.customDomain || null,
+        probePath: $('probePath').value.trim() || deployment.monitor?.probePath || '/',
+      }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.success) throw new Error(data?.error || `بررسی سلامت نامشخص بود (HTTP ${response.status}).`);
+    return data;
+  }
+
+  async function deploymentRequest(payload) {
+    const response = await fetch('/api/deploy', {
+      method: 'POST', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.success) throw new Error(data?.error || `بازسازی ناموفق بود (HTTP ${response.status}).`);
+    return data;
+  }
+
+  async function monitorTick() {
+    if (monitorBusy || !activeDeployment || !vaultKey) return;
+    monitorBusy = true;
+    try {
+      const { token } = await getActiveAccountAndToken();
+      const result = await healthRequest(activeDeployment, token);
+      if (result.healthy) {
+        activeDeployment.monitor.consecutiveFailures = 0;
+        activeDeployment.monitor.lastCheckAt = Date.now();
+        await dbPut('deployments', activeDeployment);
+        logMonitor(`سالم · ${result.message}`);
+      } else {
+        activeDeployment.monitor.consecutiveFailures = (activeDeployment.monitor.consecutiveFailures || 0) + 1;
+        activeDeployment.monitor.lastCheckAt = Date.now();
+        await dbPut('deployments', activeDeployment);
+        const failures = activeDeployment.monitor.consecutiveFailures;
+        const threshold = activeDeployment.monitor.failureThreshold || 3;
+        logMonitor(`شکست ${failures}/${threshold} · ${result.message}`);
+        if (failures >= threshold && activeDeployment.monitor.autoRebuild) {
+          const elapsed = Date.now() - (activeDeployment.monitor.lastRebuildAt || 0);
+          const cooldown = 60 * 60 * 1000;
+          if (elapsed < cooldown) {
+            const minutes = Math.ceil((cooldown - elapsed) / 60000);
+            logMonitor(`بازسازی به‌دلیل محدودیت ایمنی یک‌ساعته انجام نشد؛ ${minutes} دقیقه باقی مانده است.`);
+          } else {
+            activeDeployment.monitor.lastRebuildAt = Date.now();
+            await dbPut('deployments', activeDeployment);
+            logMonitor('آستانه شکست پر شد؛ Clean Rebuild خودکار آغاز می‌شود.');
+            const rebuildPayload = {
+              accountId: activeDeployment.accountId,
+              apiToken: token,
+              workerName: activeDeployment.workerName,
+              scriptUrl: activeDeployment.scriptUrl,
+              customDomain: activeDeployment.customDomain || null,
+              enableObfuscation: activeDeployment.enableObfuscation === true,
+              recreateWorker: true,
+              d1Name: activeDeployment.d1Name || null,
+              bindingName: activeDeployment.bindingName || null,
+              kvName: activeDeployment.kvName || null,
+              kvBindingName: activeDeployment.kvBindingName || null,
+            };
+            try {
+              const deployed = await deploymentRequest(rebuildPayload);
+              activeDeployment.workerUrl = deployed.workerUrl || activeDeployment.workerUrl;
+              activeDeployment.deployedAt = Date.now();
+              activeDeployment.monitor.consecutiveFailures = 0;
+              await dbPut('deployments', activeDeployment);
+              logMonitor('بازسازی با موفقیت به Cloudflare ارسال شد؛ در بررسی بعدی سلامت دوباره سنجیده می‌شود.');
+            } catch (rebuildError) {
+              logMonitor(`بازسازی ناموفق بود: ${rebuildError.message}`);
+            }
+          }
+        } else if (failures >= threshold) {
+          logMonitor('آستانه شکست تکمیل شد؛ بازسازی خودکار خاموش است و هیچ Workerی حذف نشد.');
+        }
+      }
+      updateMonitorStatus();
+    } catch (error) {
+      // API permission/authentication failures are inconclusive and do not count
+      // as Worker failures. This prevents accidental deletion during API outages.
+      logMonitor(`بررسی نامشخص؛ شمارنده خرابی تغییر نکرد: ${error.message}`);
+      updateMonitorStatus('بررسی انجام نشد؛ خطای API/مجوز را رفع کنید. این خطا باعث Rebuild نمی‌شود.');
+    } finally {
+      monitorBusy = false;
+    }
+  }
+
+  async function startMonitor(restoring = false) {
+    if (!activeDeployment) throw new Error('ابتدا یک Worker را با حساب ذخیره‌شده Deploy کنید.');
+    if (!vaultKey || activeAccountId !== activeDeployment.accountRecordId) throw new Error('دفترچه را باز و حساب مربوط به این Worker را انتخاب کنید.');
+    const intervalMinutes = Math.max(5, Math.min(1440, Number($('monitorInterval').value) || 10));
+    const failureThreshold = Math.max(2, Math.min(10, Number($('failureThreshold').value) || 3));
+    const autoRebuild = $('autoRebuildMonitor').checked;
+    if (autoRebuild && !restoring && !confirm('بازسازی خودکار فعال می‌شود. پس از سه شکست متوالی (یا مقدار انتخابی)، Worker قبلی حذف و از سورس ذخیره‌شده دوباره ساخته می‌شود. ادامه می‌دهید؟')) return;
+    activeDeployment.monitor = {
+      ...(activeDeployment.monitor || {}),
+      enabled: true,
+      intervalMinutes,
+      failureThreshold,
+      autoRebuild,
+      probePath: $('probePath').value.trim() || '/',
+      consecutiveFailures: activeDeployment.monitor?.consecutiveFailures || 0,
+      lastRebuildAt: activeDeployment.monitor?.lastRebuildAt || 0,
+    };
+    await dbPut('deployments', activeDeployment);
+    pauseMonitor();
+    monitorTimer = setInterval(monitorTick, intervalMinutes * 60 * 1000);
+    $('monitorToggleBtn').textContent = 'توقف پایش';
+    updateMonitorStatus(`پایش فعال شد؛ هر ${intervalMinutes} دقیقه، آستانه ${failureThreshold} شکست متوالی.${autoRebuild ? ' بازسازی خودکار مجاز است.' : ' فقط هشدار ثبت می‌شود.'}`);
+    logMonitor('پایش دوره‌ای فعال شد.');
+    await monitorTick();
+  }
+
+  async function stopMonitor() {
+    pauseMonitor();
+    if (activeDeployment?.monitor) {
+      activeDeployment.monitor.enabled = false;
+      await dbPut('deployments', activeDeployment);
+    }
+    updateMonitorStatus();
+    logMonitor('پایش متوقف شد.');
+  }
+
+  $('vaultUnlockBtn').addEventListener('click', async () => {
+    try { await createOrUnlockVault(); }
+    catch (error) { vaultKey = null; setVaultStatus(error.message, true); }
+  });
+  $('lockVaultBtn').addEventListener('click', lockVault);
+  $('saveAccountBtn').addEventListener('click', async () => {
+    try { await saveCurrentAccount(); }
+    catch (error) { setVaultStatus(error.message, true); }
+  });
+  $('savedAccounts').addEventListener('change', async () => {
+    if (!$('savedAccounts').value || !vaultKey) return;
+    try { await loadAccount($('savedAccounts').value); }
+    catch (error) { setVaultStatus(error.message, true); }
+  });
+  $('deleteAccountBtn').addEventListener('click', async () => {
+    try { await deleteSelectedAccount(); }
+    catch (error) { setVaultStatus(error.message, true); }
+  });
+  $('monitorToggleBtn').addEventListener('click', async () => {
+    try { if (monitorTimer) await stopMonitor(); else await startMonitor(false); }
+    catch (error) { updateMonitorStatus(error.message); }
+  });
+  $('monitorCheckBtn').addEventListener('click', async () => {
+    try { await monitorTick(); }
+    catch (error) { updateMonitorStatus(error.message); }
+  });
+
+  // Initialize the default Raw source, then open any existing local vault only
+  // after the user supplies the master password.
+  selectPreset('custom');
+  setStep(1);
+  updateMonitorStatus();
+})();
+</script>
+</body>
+</html>
