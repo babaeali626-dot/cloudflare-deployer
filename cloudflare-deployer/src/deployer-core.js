@@ -1,4 +1,6 @@
 // Adapted from Jasaz (GPL-3.0): https://github.com/itsyebekhe/jasaz
+import { WORKER_D1_BOOTSTRAP_STATEMENTS } from "./worker-d1-migration.js";
+
 // This deployment-only implementation is modified: stricter validation,
 // bounded source downloads, paginated resource lookup, and checked API errors.
 
@@ -66,11 +68,33 @@ function cloudflareHeaders(token) {
   return { Authorization: `Bearer ${token}`, Accept: "application/json" };
 }
 
-async function readJsonResponse(response) {
-  const text = await response.text();
-  if (!text) return {};
-  try { return JSON.parse(text); }
-  catch { return { _raw: text.slice(0, 1000) }; }
+async function timedJsonFetch(input, init = {}, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort("cloudflare-request-timeout"), timeoutMs);
+  try {
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    const text = await response.text();
+    let data = {};
+    if (text) {
+      try { data = JSON.parse(text); }
+      catch { data = { _raw: text.slice(0, 1000) }; }
+    }
+    return { response, data };
+  } catch (error) {
+    if (controller.signal.aborted || error?.name === "AbortError") {
+      fail(`درخواست به Cloudflare پس از ${Math.round(timeoutMs / 1000)} ثانیه Timeout شد.`, 504);
+    }
+    fail(`ارتباط با Cloudflare برقرار نشد: ${String(error?.message || error).slice(0, 180)}`, 502);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function validateWorkerName(value) {
+  if (typeof value !== "string" || value.length < 1 || value.length > 63 || !/^[a-z0-9_-]+$/.test(value)) {
+    fail("نام Worker نامعتبر است. فقط حروف کوچک انگلیسی، اعداد، خط تیره (-) و زیرخط (_) مجاز هستند؛ طول نام حداکثر ۶۳ نویسه است.", 400);
+  }
+  return value;
 }
 
 function cloudflareError(data, fallback) {
@@ -83,14 +107,14 @@ function cloudflareError(data, fallback) {
 }
 
 async function cfRequest(path, token, options = {}, label = "درخواست Cloudflare") {
-  const response = await fetch(`${CF_API}${path}`, {
-    ...options,
+  const { timeoutMs = 20000, ...requestOptions } = options;
+  const { response, data } = await timedJsonFetch(`${CF_API}${path}`, {
+    ...requestOptions,
     headers: {
       ...cloudflareHeaders(token),
-      ...(options.headers || {}),
+      ...(requestOptions.headers || {}),
     },
-  });
-  const data = await readJsonResponse(response);
+  }, timeoutMs);
   if (!response.ok || data?.success === false) {
     const status = response.status >= 400 ? response.status : 400;
     fail(cloudflareError(data, label), status, data?.errors || undefined);
@@ -100,49 +124,62 @@ async function cfRequest(path, token, options = {}, label = "درخواست Clou
 
 async function fetchRawSource(scriptUrl) {
   let current = validateRawUrl(scriptUrl);
-  let response;
-  // Revalidate every redirect target to avoid turning the deploy endpoint into an open fetch proxy.
-  for (let redirects = 0; redirects <= 3; redirects++) {
-    response = await fetch(current.toString(), {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; CloudflareWorkerDeployer/1.0)" },
-      redirect: "manual",
-    });
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      if (redirects === 3) fail("تعداد تغییرمسیرهای لینک سورس بیش از حد مجاز است.");
-      const location = response.headers.get("Location");
-      if (!location) fail("لینک سورس یک Redirect بدون مقصد معتبر برگرداند.");
-      current = validateRawUrl(new URL(location, current).toString());
-      continue;
+  const controller = new AbortController();
+  const timeoutMs = 25000;
+  const timer = setTimeout(() => controller.abort("source-download-timeout"), timeoutMs);
+  try {
+    let response;
+    // Revalidate every redirect target to avoid turning the deploy endpoint into an open fetch proxy.
+    for (let redirects = 0; redirects <= 3; redirects++) {
+      response = await fetch(current.toString(), {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; CloudflareWorkerDeployer/1.0)" },
+        redirect: "manual",
+        signal: controller.signal,
+      });
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        if (redirects === 3) fail("تعداد تغییرمسیرهای لینک سورس بیش از حد مجاز است.");
+        const location = response.headers.get("Location");
+        if (!location) fail("لینک سورس یک Redirect بدون مقصد معتبر برگرداند.");
+        current = validateRawUrl(new URL(location, current).toString());
+        continue;
+      }
+      break;
     }
-    break;
-  }
 
-  if (!response?.ok) fail(`دانلود سورس ناموفق بود: HTTP ${response?.status || "unknown"} ${response?.statusText || ""}`.trim(), 502);
-  const declared = Number(response.headers.get("Content-Length") || 0);
-  if (declared > MAX_SOURCE_BYTES) fail("حجم سورس بیشتر از ۲ مگابایت است.");
-  if (!response.body) fail("پاسخ لینک سورس خالی است.", 502);
+    if (!response?.ok) fail(`دانلود سورس ناموفق بود: HTTP ${response?.status || "unknown"} ${response?.statusText || ""}`.trim(), 502);
+    const declared = Number(response.headers.get("Content-Length") || 0);
+    if (declared > MAX_SOURCE_BYTES) fail("حجم سورس بیشتر از ۲ مگابایت است.");
+    if (!response.body) fail("پاسخ لینک سورس خالی است.", 502);
 
-  const reader = response.body.getReader();
-  const chunks = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_SOURCE_BYTES) {
-      try { await reader.cancel(); } catch {}
-      fail("حجم سورس بیشتر از ۲ مگابایت است.");
+    const reader = response.body.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_SOURCE_BYTES) {
+        try { await reader.cancel(); } catch {}
+        fail("حجم سورس بیشتر از ۲ مگابایت است.");
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    let source;
+    try { source = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+    catch { fail("فایل سورس UTF-8 معتبر نیست."); }
+    if (!source.trim()) fail("فایل سورس خالی است.");
+    return source;
+  } catch (error) {
+    if (controller.signal.aborted || error?.name === "AbortError") {
+      fail(`دانلود سورس پس از ${Math.round(timeoutMs / 1000)} ثانیه Timeout شد.`, 504);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-  let source;
-  try { source = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
-  catch { fail("فایل سورس UTF-8 معتبر نیست."); }
-  if (!source.trim()) fail("فایل سورس خالی است.");
-  return source;
 }
 
 // Jasaz's original string-table XOR/Base64 obfuscation routine (GPL-3.0).
@@ -303,6 +340,52 @@ async function ensureD1(accountId, token, name) {
   return id;
 }
 
+async function applyD1BootstrapMigration(accountId, token, databaseId, reportStep = async () => {}) {
+  const endpoint = `/accounts/${accountId}/d1/database/${encodeURIComponent(databaseId)}/query`;
+  for (let index = 0; index < WORKER_D1_BOOTSTRAP_STATEMENTS.length; index++) {
+    const sql = WORKER_D1_BOOTSTRAP_STATEMENTS[index];
+    const { data } = await cfRequest(endpoint, token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sql }),
+      timeoutMs: 20000,
+    }, `اجرای مرحله ${index + 1} از Migration دیتابیس D1 ناموفق بود`);
+    if (data?.success === false || (Array.isArray(data?.result) && data.result.some(item => item?.success === false))) {
+      fail(cloudflareError(data, `اجرای مرحله ${index + 1} از Migration اولیه D1 ناموفق بود`), 502, data?.errors || undefined);
+    }
+    await reportStep(`مرحله ${index + 1} از ${WORKER_D1_BOOTSTRAP_STATEMENTS.length} در Migration دیتابیس D1 اجرا شد.`);
+  }
+  return true;
+}
+
+async function verifyCloudflareToken(accountId, token, needsD1, needsKV, reportStep) {
+  await reportStep("در حال اعتبارسنجی API Token در Cloudflare...");
+  const { data: verify } = await cfRequest(
+    `/accounts/${accountId}/tokens/verify`, token, {},
+    "اعتبارسنجی API Token ناموفق بود"
+  );
+  const tokenStatus = String(verify?.result?.status || "").toLowerCase();
+  if (tokenStatus !== "active") {
+    fail(`وضعیت API Token فعال تأیید نشد (وضعیت دریافتی: ${tokenStatus || "نامشخص"}). یک Token فعال وارد کنید.`, 401);
+  }
+  await reportStep("Token معتبر است و وضعیت آن فعال گزارش شد.");
+
+  // These read probes confirm that the token can see the requested products.
+  // Cloudflare's verify endpoint does not expose the token's exact Edit/Write policy;
+  // the actual create/update requests below remain the authoritative write check.
+  await cfRequest(`/accounts/${accountId}/workers/scripts?page=1&per_page=1`, token, {}, "دسترسی API به Workers قابل تأیید نیست؛ مجوز Workers Scripts لازم است");
+  await reportStep("دسترسی API بخش Workers در حساب قابل مشاهده است؛ مجوز نوشتن هنگام آپلود واقعی نیز کنترل می‌شود.");
+  if (needsD1) {
+    await cfRequest(`/accounts/${accountId}/d1/database?page=1&per_page=1`, token, {}, "دسترسی API به D1 قابل تأیید نیست؛ مجوز D1 لازم است");
+    await reportStep("دسترسی API بخش D1 قابل مشاهده است؛ مجوز نوشتن هنگام ساخت یا اجرای Migration نهایی می‌شود.");
+  }
+  if (needsKV) {
+    await cfRequest(`/accounts/${accountId}/storage/kv/namespaces?page=1&per_page=1`, token, {}, "دسترسی API به KV قابل تأیید نیست؛ مجوز KV لازم است");
+    await reportStep("دسترسی API بخش KV قابل مشاهده است.");
+  }
+  return { status: tokenStatus || "active" };
+}
+
 async function ensureKV(accountId, token, title) {
   const rows = await listAllPages(`/accounts/${accountId}/storage/kv/namespaces`, token, "خطا در دریافت فهرست KV");
   const existing = rows.find(ns => ns.title === title);
@@ -318,12 +401,11 @@ async function ensureKV(accountId, token, title) {
 }
 
 async function deleteExistingWorker(accountId, token, workerName) {
-  const response = await fetch(`${CF_API}/accounts/${accountId}/workers/scripts/${encodeURIComponent(workerName)}`, {
+  const { response, data } = await timedJsonFetch(`${CF_API}/accounts/${accountId}/workers/scripts/${encodeURIComponent(workerName)}`, {
     method: "DELETE",
     headers: cloudflareHeaders(token),
-  });
+  }, 20000);
   if (response.status === 404) return { deleted: false, absent: true };
-  const data = await readJsonResponse(response);
   if (!response.ok || data?.success === false) {
     fail(cloudflareError(data, "حذف Worker قبلی ناموفق بود؛ بازسازی متوقف شد تا وضعیت قبلی ناخواسته از بین نرود."), response.status >= 400 ? response.status : 400);
   }
@@ -361,7 +443,7 @@ async function getWorkerUrl(accountId, token, workerName) {
 export async function deployWorker(payload) {
   const accountId = String(payload?.accountId || "").trim();
   const apiToken = String(payload?.apiToken || "").trim();
-  const workerName = validateName(String(payload?.workerName || "").trim(), "نام Worker");
+  const workerName = validateWorkerName(String(payload?.workerName || "").trim());
   const scriptUrl = String(payload?.scriptUrl || "").trim();
   if (!/^[a-f0-9]{32}$/i.test(accountId)) fail("Account ID باید یک شناسه ۳۲ کاراکتری هگزادسیمال باشد.");
   if (!apiToken || apiToken.length < 20 || apiToken.length > 512) fail("API Token خالی یا نامعتبر است.");
@@ -370,44 +452,56 @@ export async function deployWorker(payload) {
   const enableObfuscation = payload?.enableObfuscation === true;
   const recreateWorker = payload?.recreateWorker === true;
   const customDomain = normalizeDomain(payload?.customDomain || "");
-  const d1Name = payload?.d1Name ? validateName(String(payload.d1Name).trim(), "نام دیتابیس D1") : null;
-  const bindingName = payload?.bindingName ? validateBinding(String(payload.bindingName).trim(), "نام Binding دیتابیس") : null;
+  const d1Name = payload?.d1Name ? validateName(String(payload.d1Name).trim().toLowerCase(), "نام دیتابیس D1") : null;
+  const bindingName = d1Name ? validateBinding(String(payload?.bindingName || "DB").trim(), "نام Binding دیتابیس") : null;
   const kvName = payload?.kvName ? validateName(String(payload.kvName).trim(), "نام KV Namespace") : null;
   const kvBindingName = payload?.kvBindingName ? validateBinding(String(payload.kvBindingName).trim(), "نام Binding مربوط به KV") : null;
-  if (!!d1Name !== !!bindingName) fail("برای اتصال D1 هم نام دیتابیس و هم نام Binding را وارد کنید.");
+  if (!d1Name && payload?.bindingName) fail("برای تعریف Binding دیتابیس، ابتدا ساخت D1 را فعال کنید.");
   if (!!kvName !== !!kvBindingName) fail("برای اتصال KV هم نام Namespace و هم نام Binding را وارد کنید.");
 
   const steps = [];
+  const reportStep = async (message) => {
+    steps.push(message);
+    if (typeof payload?.onStep === "function") await payload.onStep(message);
+  };
+
+  await verifyCloudflareToken(accountId, apiToken, !!d1Name, !!kvName, reportStep);
+  await reportStep("در حال دریافت سورس Worker از GitHub Raw...");
   let workerScript = await fetchRawSource(scriptUrl);
   const originalBytes = new TextEncoder().encode(workerScript).byteLength;
-  steps.push(`سورس با موفقیت دریافت شد (${originalBytes.toLocaleString("en-US")} بایت).`);
+  await reportStep(`سورس با موفقیت دریافت شد (${originalBytes.toLocaleString("en-US")} بایت).`);
 
   if (enableObfuscation) {
     workerScript = obfuscateWorkerCode(workerScript);
-    steps.push("مبهم‌سازی XOR/Base64 انجام شد.");
+    await reportStep("مبهم‌سازی XOR/Base64 انجام شد.");
   }
 
   const bindings = [];
   let d1DatabaseId = null;
   let kvNamespaceId = null;
   if (d1Name && bindingName) {
+    await reportStep(`در حال یافتن یا ساخت دیتابیس D1 با نام ${d1Name}...`);
     d1DatabaseId = await ensureD1(accountId, apiToken, d1Name);
-    bindings.push({ type: "d1", name: bindingName, id: d1DatabaseId });
-    steps.push(`D1 آماده شد و با Binding «${bindingName}» متصل می‌شود.`);
+    await reportStep("در حال اجرای Migration اولیه و ساخت جدول‌های پایه D1...");
+    await applyD1BootstrapMigration(accountId, apiToken, d1DatabaseId, reportStep);
+    bindings.push({ type: "d1", name: bindingName || "DB", id: d1DatabaseId });
+    await reportStep(`D1 آماده شد، Migration اجرا شد و Binding «${bindingName || "DB"}» به Metadata افزوده می‌شود.`);
   }
   if (kvName && kvBindingName) {
+    await reportStep(`در حال یافتن یا ساخت KV با نام ${kvName}...`);
     kvNamespaceId = await ensureKV(accountId, apiToken, kvName);
     bindings.push({ type: "kv_namespace", name: kvBindingName, namespace_id: kvNamespaceId });
-    steps.push(`KV آماده شد و با Binding «${kvBindingName}» متصل می‌شود.`);
+    await reportStep(`KV آماده شد و Binding «${kvBindingName}» به Metadata افزوده می‌شود.`);
   }
 
   let deleted = false;
   if (recreateWorker) {
     const outcome = await deleteExistingWorker(accountId, apiToken, workerName);
     deleted = outcome.deleted;
-    steps.push(outcome.deleted ? "Worker قبلی حذف شد؛ بازسازی از صفر ادامه پیدا می‌کند." : "Worker قبلی وجود نداشت؛ ساخت تازه ادامه پیدا می‌کند.");
+    await reportStep(outcome.deleted ? "Worker قبلی حذف شد؛ بازسازی از صفر ادامه پیدا می‌کند." : "Worker قبلی وجود نداشت؛ ساخت تازه ادامه پیدا می‌کند.");
   }
 
+  await reportStep("در حال آماده‌سازی Metadata و Multipart برای Cloudflare...");
   const moduleWorker = looksLikeModule(workerScript);
   const metadata = {
     ...(moduleWorker ? { main_module: "worker.js" } : { body_part: "worker.js" }),
@@ -420,26 +514,26 @@ export async function deployWorker(payload) {
     type: moduleWorker ? "application/javascript+module" : "application/javascript",
   }), "worker.js");
 
-  const upload = await fetch(`${CF_API}/accounts/${accountId}/workers/scripts/${encodeURIComponent(workerName)}`, {
+  const { response: upload, data: uploadData } = await timedJsonFetch(`${CF_API}/accounts/${accountId}/workers/scripts/${encodeURIComponent(workerName)}`, {
     method: "PUT",
     headers: cloudflareHeaders(apiToken),
     body: formData,
-  });
-  const uploadData = await readJsonResponse(upload);
+  }, 30000);
   if (!upload.ok || uploadData?.success === false) {
     fail(cloudflareError(uploadData, "آپلود و استقرار Worker ناموفق بود"), upload.status >= 400 ? upload.status : 400, uploadData?.errors || undefined);
   }
-  steps.push(`کد Worker با موفقیت به Cloudflare ارسال شد (${moduleWorker ? "ES Module" : "Service Worker"}).`);
+  await reportStep(`کد Worker با موفقیت به Cloudflare ارسال شد (${moduleWorker ? "ES Module" : "Service Worker"}).`);
 
   let workersDevError = null;
   try {
     await tryEnableWorkersDev(accountId, apiToken, workerName);
-    steps.push("دسترسی workers.dev فعال شد.");
+    await reportStep("دسترسی workers.dev فعال شد.");
   } catch (error) {
     workersDevError = error.message;
-    steps.push(`هشدار workers.dev: ${error.message}`);
+    await reportStep(`هشدار workers.dev: ${error.message}`);
   }
   const workerUrl = await getWorkerUrl(accountId, apiToken, workerName);
+  await reportStep(workerUrl ? `آدرس نهایی Worker: ${workerUrl}` : "Worker مستقر شد؛ ساب‌دامین workers.dev هنوز قابل تشخیص نیست.");
 
   let customDomainUrl = null;
   let customDomainError = null;
@@ -451,10 +545,10 @@ export async function deployWorker(payload) {
         body: JSON.stringify({ hostname: customDomain, service: workerName }),
       }, "اتصال دامنه اختصاصی ناموفق بود");
       customDomainUrl = `https://${customDomain}`;
-      steps.push("دامنه اختصاصی به Worker متصل شد.");
+      await reportStep("دامنه اختصاصی به Worker متصل شد.");
     } catch (error) {
       customDomainError = error.message;
-      steps.push(`هشدار دامنه اختصاصی: ${error.message}`);
+      await reportStep(`هشدار دامنه اختصاصی: ${error.message}`);
     }
   }
 
@@ -471,6 +565,8 @@ export async function deployWorker(payload) {
     recreated: recreateWorker,
     deletedExisting: deleted,
     moduleWorker,
+    d1MigrationApplied: !!d1DatabaseId,
+    tokenStatus: "active",
     sourceBytes: originalBytes,
     steps,
   };
@@ -481,16 +577,15 @@ export async function deployWorker(payload) {
 export async function checkWorkerHealth(payload) {
   const accountId = String(payload?.accountId || "").trim();
   const apiToken = String(payload?.apiToken || "").trim();
-  const workerName = validateName(String(payload?.workerName || "").trim(), "نام Worker");
+  const workerName = validateWorkerName(String(payload?.workerName || "").trim());
   if (!/^[a-f0-9]{32}$/i.test(accountId)) fail("Account ID نامعتبر است.");
   if (!apiToken || apiToken.length < 20 || apiToken.length > 512) fail("API Token خالی یا نامعتبر است.");
 
   // First verify that the script still exists. Authentication/permission errors
   // are inconclusive and must never be interpreted as a reason to delete it.
-  const scriptResponse = await fetch(`${CF_API}/accounts/${accountId}/workers/scripts/${encodeURIComponent(workerName)}`, {
+  const { response: scriptResponse, data: scriptData } = await timedJsonFetch(`${CF_API}/accounts/${accountId}/workers/scripts/${encodeURIComponent(workerName)}`, {
     headers: cloudflareHeaders(apiToken),
-  });
-  const scriptData = await readJsonResponse(scriptResponse);
+  }, 15000);
   if (scriptResponse.status === 404 || (scriptData?.success === false && (scriptData.errors || []).some(e => String(e.code) === "10007"))) {
     return { success: true, healthy: false, failureType: "worker_missing", message: "Worker در حساب Cloudflare پیدا نشد.", workerName };
   }
