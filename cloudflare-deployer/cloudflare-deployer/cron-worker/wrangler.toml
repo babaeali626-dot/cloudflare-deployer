@@ -8,8 +8,8 @@ crons = ["*/5 * * * *"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "REPLACE_WITH_EXISTING_DASHBOARD_D1_NAME"
-database_id = "REPLACE_WITH_EXISTING_DASHBOARD_D1_ID"
+database_name = "zeus-deployer-db"
+database_id = "2fb661ce-00a8-4ae8-b165-76f73256f697"
 
 [observability]
 enabled = true
