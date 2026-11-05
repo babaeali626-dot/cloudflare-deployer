@@ -1,6 +1,0 @@
-{
-  "name": "zeus-cloud-deployer-private",
-  "private": true,
-  "type": "module",
-  "description": "Private Cloudflare Pages Worker deployment dashboard"
-}
