@@ -1,0 +1,13 @@
+افزوده‌های نسخه Zeus Cloud Deployer v3.3-Cron
+
+- اضافه شدن Worker زمان‌بندی‌شده مستقل در cron-worker/ برای پایش پس‌زمینه بدون نیاز به باز بودن مرورگر.
+- استفاده مجدد از deployWorker و checkWorkerHealth نسخه v3.3؛ منطق ساخت Worker و بررسی سلامت جداگانه بازنویسی نشده است.
+- اتصال Cron به همان D1 اصلی پنل از طریق Binding با نام DB.
+- استفاده از همان VAULT_ENCRYPTION_KEY برای رمزگشایی امن Cloudflare API Tokenهای ذخیره‌شده.
+- اجرای Cron Trigger هر ۵ دقیقه و احترام به Monitor Interval مجزا برای هر حساب.
+- ذخیره وضعیت Cron و آخرین زمان/نتیجه بررسی در settings_json همان حساب.
+- رعایت آستانه شکست، گزینه Auto Rebuild و محدودیت یک‌ساعته.
+- عدم افزایش شمارنده خرابی در صورت خطاهای API یا رمزگشایی.
+- بررسی مجوز Clean Rebuild پیش از بازسازی خودکار.
+- قفل مشترک D1 برای جلوگیری از تداخل Cron با Health Check، Deploy و Clean Rebuild پنل.
+- نمایش آخرین وضعیت Cron در گزارش پایش هنگام باز کردن مجدد حساب.
